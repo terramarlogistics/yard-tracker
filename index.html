@@ -40,7 +40,7 @@ label.l{font-size:14px;font-weight:600;color:var(--mut)}
 </style></head><body><div id="app"><p class="mut">Loading…</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL='sb_publishable_FITSNOv_uPp5Xd8zM0ZKYA_G0PBOrWm',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
+const SUPABASE_URL='https://yuobmkwgltxmrkdcuqoi.supabase.co',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CODE=new URLSearchParams(location.search).get('code')||'';
 let role='',cars=[],custs=[],view='yard',q='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false;
