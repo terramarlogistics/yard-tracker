@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Yard Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1a1d21;--mut:#6b7280;--bd:#dfe3e8;--pri:#1d4ed8;--ok:#166534;--okbg:#dcfce7;--warn:#92400e;--warnbg:#fef3c7;--bad:#991b1b;--badbg:#fee2e2;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1c2026;--tx:#eef0f3;--mut:#9aa3af;--bd:#2c323b;--pri:#60a5fa;--ok:#86efac;--okbg:#14351f;--warn:#fcd34d;--warnbg:#3b2f0d;--bad:#fca5a5;--badbg:#3f1616}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1c2026;--tx:#eef0f3;--mut:#9aa3af;--bd:#2c323b;--pri:#60a5fa;--ok:#86efac;--okbg:#14351f;--warn:#fcd34d;--warnbg:#3b2f0d;--bad:#fca5a5;--badbg:#3f1616}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{max-width:720px;margin:0 auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+h1{font-size:22px;margin:0}.mut{color:var(--mut);font-size:15px}
+button,.big{font:inherit;cursor:pointer}
+.big{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:600;font-size:18px;margin:8px 0;text-align:center}
+:root:not([data-theme="light"]) .big{color:#0b1220}
+.big.alt{background:var(--card);color:var(--tx);border:2px solid var(--bd)}
+.link{background:none;border:0;color:var(--pri);font-size:16px;padding:8px}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.sum div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;text-align:center}
+.sum b{display:block;font-size:22px}.sum span{font-size:13px;color:var(--mut)}
+input,textarea{width:100%;font:inherit;padding:12px;border:2px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);margin:4px 0 10px}
+label.l{font-size:14px;font-weight:600;color:var(--mut)}
+.tabs{display:flex;gap:6px;margin:4px 0 10px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx)}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+:root:not([data-theme="light"]) .tabs button.on{color:#0b1220}
+.car{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+.car h3{margin:0 0 2px;font-size:18px}.vin{font-family:ui-monospace,Menlo,monospace;font-size:14px;color:var(--mut);word-break:break-all}
+.badge{display:inline-block;padding:4px 10px;border-radius:99px;font-weight:700;font-size:14px;margin:6px 0}
+.ok{background:var(--okbg);color:var(--ok)}.warn{background:var(--warnbg);color:var(--warn)}.bad{background:var(--badbg);color:var(--bad)}.gray{background:var(--bd);color:var(--mut)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sm{padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+.sm.go{background:var(--pri);color:#fff;border-color:var(--pri)}
+:root:not([data-theme="light"]) .sm.go{color:#0b1220}
+.sm.arm{background:var(--bad);color:#fff;border-color:var(--bad)}
+.note{background:var(--warnbg);color:var(--warn);padding:10px;border-radius:10px;margin:6px 0 10px;font-size:15px}
+#msg{color:var(--bad);font-weight:600;min-height:22px}
+.grp{font-weight:700;margin:14px 0 6px;display:flex;justify-content:space-between}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style></head><body><div id="app"><p class="mut">Loading…</p></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='sb_publishable_FITSNOv_uPp5Xd8zM0ZKYA_G0PBOrWm',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const CODE=new URLSearchParams(location.search).get('code')||'';
+let role='',cars=[],custs=[],view='yard',q='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const dnum=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)/864e5};
+const money=n=>'$'+n.toLocaleString();
+const nice=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})};
+function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));const extra=Math.max(0,days-FREE_DAYS);return{days,extra,fee:extra*DAILY,left:FREE_DAYS-days}}
+function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
+function shrink(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{const k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.85)};img.src=fr.result};fr.readAsDataURL(file)})}
+
+
+const byId=id=>cars.find(c=>c.id===id);
+const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
+async function callScan(body){
+  const {data:{session}}=await sb.auth.getSession();
+  const r=await fetch(SUPABASE_URL+'/functions/v1/scan-vin',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_KEY,Authorization:'Bearer '+(session?session.access_token:SUPABASE_KEY)},body:JSON.stringify(Object.assign({code:CODE},body))});
+  const j=await r.json();if(!r.ok)throw new Error(j.error||'Something went wrong');return j;
+}
+async function scan(file){
+  if(!file)return;draft={reading:true};render();
+  try{const r=await callScan({image:await b64(await shrink(file))});draft=Object.assign({scanned:true},r);if(!r.vin)draft.msg="I couldn't read a VIN in that photo. Try again closer and in good light, or type it in."}
+  catch(e){draft={msg:e.message}}
+  render();
+}
+async function lookup(){
+  const g=grab();if(g.vin.length!==17){$('#msg').textContent='A VIN has 17 characters. Please check it.';return}
+  try{const r=await callScan({vin:g.vin});draft=Object.assign(g,{year:r.year||g.year,make:r.make||g.make,model:r.model||g.model,looked:true})}catch(e){draft=Object.assign(g,{msg:e.message})}
+  render();
+}
+const grab=()=>{const g=id=>{const e=$('#'+id);return e?e.value.trim():''};return{vin:g('f_vin').toUpperCase().replace(/[^A-Z0-9]/g,''),year:g('f_year'),make:g('f_make'),model:g('f_model'),cust:g('f_cust'),date:g('f_date'),dn:g('f_dn'),dp:g('f_dp'),dc:g('f_dc'),notes:g('f_notes')}};
+function startAdd(){view='add';draft=null;dupOk=false;render()}
+function cancel(){view='yard';draft=null;render()}
+async function save(){
+  const g=grab(),m=$('#msg');
+  if(g.vin.length<11){m.textContent='Please enter the VIN.';return}
+  if(role==='owner'&&!g.cust){m.textContent='Please choose the customer.';return}
+  if(!g.dn||g.dp.replace(/\D/g,'').length<7){m.textContent='Please enter the name and phone number of the person dropping the car off.';return}
+  if(role==='owner'&&cars.some(c=>c.vin===g.vin&&!c.outDate)&&!dupOk){dupOk=true;m.textContent='This VIN is already in the yard. Tap Save again to add it anyway.';return}
+  if(CODE){
+    const {error}=await sb.rpc('submit_dropoff',{p_code:CODE,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
+    if(error){m.textContent=error.message;return}
+    done=true;draft=null;render();return;
+  }
+  const {error}=await sb.from('cars').insert({customer_id:g.cust,vin:g.vin,year:g.year,make:g.make,model:g.model,drop_name:g.dn,drop_phone:g.dp,drop_co:g.dc,notes:g.notes,in_date:g.date||today()});
+  if(error){m.textContent=error.message;return}
+  draft=null;view='yard';dupOk=false;await load();
+}
+async function arm(id,fn){if(armed!==id){armed=id;list();return}armed='';await fn();await load()}
+const checkout=c=>arm('o'+c.id,()=>sb.from('cars').update({out_date:today()}).eq('id',c.id));
+const undo=async c=>{await sb.from('cars').update({out_date:null}).eq('id',c.id);await load()};
+const remove=c=>arm('d'+c.id,()=>sb.from('cars').update({deleted:true}).eq('id',c.id));
+function card(c){
+  const k=calc(c),out=!!c.outDate;
+  let b=out?`<span class="badge gray">Picked up ${nice(c.outDate)}${k.fee?' · billed '+money(k.fee):''}</span>`
+   :k.extra>0?`<span class="badge bad">Charging: ${money(k.fee)} owed (${k.extra} day${k.extra>1?'s':''} × ${money(DAILY)})</span>`
+   :`<span class="badge ${k.left<=7?'warn':'ok'}">${k.left} free day${k.left==1?'':'s'} left</span>`;
+  const title=[c.year,c.make,c.model].filter(Boolean).join(' ')||'Unknown vehicle';
+  const oa=armed==='o'+c.id,da=armed==='d'+c.id;
+  return `<div class="car"><h3>${esc(title)}</h3><div class="vin">${esc(c.vin)}</div>
+  <div>${esc(c.customer)}</div>${c.dropName?`<div class="mut">Dropped off by ${esc(c.dropName)}${c.dropPhone?' · '+esc(c.dropPhone):''}${c.dropCo?' ('+esc(c.dropCo)+')':''}</div>`:''}${b}
+  <div class="mut">In ${nice(c.inDate)} · ${k.days} day${k.days==1?'':'s'}${c.notes?'<br>'+esc(c.notes):''}</div>
+  <div class="row" style="margin-top:8px${role==='owner'?'':';display:none'}">${out
+   ?`<button class="sm" onclick="undo(byId('${c.id}'))">Undo pick-up</button>`
+   :`<button class="sm ${oa?'arm':'go'}" onclick="checkout(byId('${c.id}'))">${oa?'Tap again to confirm'+(k.fee?' ('+money(k.fee)+' due)':''):'Check out / picked up'}</button>`}
+   <button class="sm ${da?'arm':''}" onclick="remove(byId('${c.id}'))">${da?'Tap again to delete':'Delete'}</button></div></div>`;
+}
+function list(){
+  const el=$('#list');if(!el)return;
+  const s=q.toLowerCase(),cs=cars.filter(c=>!s||[c.vin,c.customer,c.make,c.model,c.year,c.dropName].join(' ').toLowerCase().includes(s));
+  const inY=cs.filter(c=>!c.outDate).sort((a,b)=>calc(b).days-calc(a).days);
+  let h='';
+  if(view==='yard')h=inY.map(card).join('')||'<p class="mut">No cars in the yard.</p>';
+  else if(view==='out')h=cs.filter(c=>c.outDate).sort((a,b)=>b.outDate.localeCompare(a.outDate)).map(card).join('')||'<p class="mut">Nothing picked up yet.</p>';
+  else{const g={};inY.forEach(c=>(g[c.customer]=g[c.customer]||[]).push(c));
+    h=Object.keys(g).sort().map(n=>{const owed=g[n].reduce((t,c)=>t+calc(c).fee,0);return `<div class="grp"><span>${esc(n)} · ${g[n].length} car${g[n].length>1?'s':''}</span><span style="color:${owed?'var(--bad)':'var(--mut)'}">${owed?money(owed)+' owed':'no charges'}</span></div>`+g[n].map(card).join('')}).join('')||'<p class="mut">No cars in the yard.</p>'}
+  el.innerHTML=h;
+}
+
+function addHtml(){
+  const d=draft;
+  if(!d)return `<header><h1>Drop off a car</h1>${CODE?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
+   <label class="big">📷 Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
+   <button class="big alt" onclick="draft={};render()">⌨️ Type the VIN instead</button>
+   <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
+  if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
+  const v=k=>esc(d[k]||'');
+  return `<header><h1>Drop off a car</h1>${CODE?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
+  ${d.msg?`<div class="note">${esc(d.msg)}</div>`:''}
+  ${d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
+  ${d.vin&&d.vin.length===17&&!vinOk(d.vin)?'<div class="note">This VIN does not pass the standard check. Double-check every character.</div>':''}
+  <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17">
+  <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
+  <div class="two"><div><label class="l">Year</label><input id="f_year" value="${v('year')}" inputmode="numeric"></div><div><label class="l">Make</label><input id="f_make" value="${v('make')}"></div></div>
+  <label class="l">Model</label><input id="f_model" value="${v('model')}">
+  ${role==='owner'?`<label class="l">Customer</label><select id="f_cust" style="width:100%;font:inherit;padding:12px;margin:4px 0 10px"><option value="">Choose…</option>${custs.filter(c=>c.active).map(c=>`<option value="${c.id}" ${d.cust===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+  <label class="l">Date arrived</label><input id="f_date" type="date" value="${d.date||today()}">`:''}
+  <label class="l">Notes (optional)</label><input id="f_notes" value="${v('notes')}" placeholder="Damage, keys, anything we should know">
+  <div class="grp"><span>Who is dropping it off? (required)</span></div>
+  <label class="l">Driver's name</label><input id="f_dn" value="${v('dn')}" autocomplete="name">
+  <label class="l">Phone number</label><input id="f_dp" value="${v('dp')}" type="tel" inputmode="tel" autocomplete="tel">
+  <label class="l">Trucking company (optional)</label><input id="f_dc" value="${v('dc')}">
+  <div id="msg"></div><button class="big" onclick="save()">${CODE?'Submit drop-off':'Save to yard'}</button>`;
+}
+function codesHtml(){
+  const base=location.origin+location.pathname;
+  return `<label class="l">Add a customer</label><div class="row"><input id="nc" placeholder="Customer name" style="flex:1"><button class="sm go" onclick="addCust()">Add</button></div>`+
+  custs.map(c=>`<div class="car"><h3>${esc(c.name)} ${c.active?'':'<span class="badge gray">Switched off</span>'}</h3><label class="l">Drop-off link (copy and send)</label><input readonly onclick="this.select()" value="${esc(base+'?code='+c.code)}"><button class="sm" onclick="toggleCust('${c.id}',${!c.active})">${c.active?'Switch link off':'Switch link on'}</button></div>`).join('');
+}
+async function addCust(){
+  const n=$('#nc').value.trim();if(!n)return;
+  const code=Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%32]).join('');
+  await sb.from('customers').insert({name:n,code});await load();
+}
+async function toggleCust(id,on){await sb.from('customers').update({active:on}).eq('id',id);await load()}
+async function doLogin(){
+  const {error}=await sb.auth.signInWithPassword({email:$('#l_e').value.trim(),password:$('#l_p').value});
+  if(error){$('#msg').textContent='Wrong email or password.';return}
+  needLogin=false;await enter();
+}
+function render(){
+  const a=$('#app');
+  if(err){a.innerHTML=`<div class="note">${esc(err)}</div>`;return}
+  if(CODE){a.innerHTML=done?`<header><h1>✅ Received</h1></header><p>Thank you. The car has been checked in.</p><button class="big" onclick="done=false;draft=null;render()">Drop off another car</button>`:addHtml();return}
+  if(needLogin){a.innerHTML=`<header><h1>🚗 Yard Tracker</h1></header><label class="l">Email</label><input id="l_e" type="email" autocomplete="username"><label class="l">Password</label><input id="l_p" type="password" autocomplete="current-password"><div id="msg"></div><button class="big" onclick="doLogin()">Log in</button>`;return}
+  if(!ready){a.innerHTML='<p class="mut">Loading…</p>';return}
+  if(view==='add'){a.innerHTML=addHtml();return}
+  const y=cars.filter(c=>!c.outDate),ch=y.filter(c=>calc(c).extra>0),owed=y.reduce((t,c)=>t+calc(c).fee,0);
+  const tabs=[['yard','In yard'],['cust','By customer'],['out','Picked up']].concat(role==='owner'?[['codes','Customers']]:[]);
+  a.innerHTML=`<header><h1>🚗 Yard Tracker</h1><button class="link" onclick="sb.auth.signOut().then(()=>location.reload())">Log out</button></header>
+  ${role==='owner'?'<button class="big" onclick="startAdd()">＋ Check in a car</button>':'<p class="mut">View only</p>'}
+  <div class="sum"><div><b>${y.length}</b><span>in yard</span></div><div><b>${ch.length}</b><span>being charged</span></div><div><b>${money(owed)}</b><span>owed today</span></div></div>
+  <input id="q" placeholder="Search VIN, customer, make, driver…" value="${esc(q)}" oninput="q=this.value;list()">
+  <div class="tabs">${tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="view='${t[0]}';render()">${t[1]}</button>`).join('')}</div><div id="list"></div>`;
+  if(view==='codes')$('#list').innerHTML=codesHtml();else list();
+}
+async function load(){
+  const a=await sb.from('cars').select('*,customers(name)').order('in_date'),c=await sb.from('customers').select('*').order('name');
+  if(a.error){err=a.error.message;render();return}
+  cars=a.data.filter(x=>!x.deleted).map(x=>({id:x.id,vin:x.vin,customer:x.customers?x.customers.name:'',year:x.year,make:x.make,model:x.model,dropName:x.drop_name,dropPhone:x.drop_phone,dropCo:x.drop_co,notes:x.notes,inDate:x.in_date,outDate:x.out_date||''}));
+  custs=c.data||[];ready=true;if(view!=='add')render();
+}
+async function enter(){
+  const {data}=await sb.from('profiles').select('role').maybeSingle();
+  if(!data){err='Your account has not been given access yet. Ask the yard owner.';render();return}
+  role=data.role;await load();setInterval(()=>{if(view!=='add'&&view!=='codes'&&document.activeElement.tagName!=='INPUT')load()},30000);
+}
+(async()=>{
+  if(CODE){const {data}=await sb.rpc('get_customer',{p_code:CODE});if(!data)err='This drop-off link is not valid. Please contact the yard.';else cust={name:data};render();return}
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){needLogin=true;render();return}
+  await enter();
+})();
+</script></body></html>
