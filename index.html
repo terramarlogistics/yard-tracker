@@ -116,7 +116,7 @@ function card(c){
   <div class="mut">In ${nice(c.inDate)} · ${k.days} day${k.days==1?'':'s'}${c.notes?'<br>'+esc(c.notes):''}</div>
   <div class="row" style="margin-top:8px${role==='owner'?'':';display:none'}">${out
    ?`<button class="sm" onclick="undo(byId('${c.id}'))">Undo pick-up</button>`
-   :`<button class="sm ${oa?'arm':'go'}" onclick="checkout(byId('${c.id}'))">${oa?'Tap again to confirm'+(k.fee?' ('+money(k.fee)+' due)':''):'Check out / picked up'}</button>`}
+   :`<button class="sm ${oa?'arm':'go'}" onclick="checkout(byId('${c.id}'))">${oa?'Tap again to confirm'+(k.fee?' ('+money(k.fee)+' due)':''):'Loaded/Check Out'}</button>`}
    <button class="sm ${da?'arm':''}" onclick="remove(byId('${c.id}'))">${da?'Tap again to delete':'Delete'}</button></div></div>`;
 }
 function list(){
