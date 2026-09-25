@@ -18,7 +18,7 @@ button,.big{font:inherit;cursor:pointer}
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
 .sum div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;text-align:center}
 .sum b{display:block;font-size:22px}.sum span{font-size:13px;color:var(--mut)}
-input,textarea{width:100%;font:inherit;padding:12px;border:2px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);margin:4px 0 10px}
+input,textarea,select{width:100%;font:inherit;padding:12px;border:2px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);margin:4px 0 10px}
 label.l{font-size:14px;font-weight:600;color:var(--mut)}
 .tabs{display:flex;gap:6px;margin:4px 0 10px}
 .tabs button{flex:1;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx)}
@@ -45,7 +45,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CODE=new URLSearchParams(location.search).get('code')||'';
 const OPEN=new URLSearchParams(location.search).get('dropoff')==='1';
 let openNames=[];
-let role='',cars=[],custs=[],view='yard',q='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false;
+let role='',cars=[],custs=[],view='yard',q='',yearFilter='',makeFilter='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
@@ -76,26 +76,27 @@ async function lookup(){
   try{const d=await(await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+g.vin+'?format=json')).json();const x=(d.Results&&d.Results[0])||{};const tc=t=>(t||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());const r={year:x.ModelYear,make:tc(x.Make),model:x.Model};draft=Object.assign(g,{year:r.year||g.year,make:r.make||g.make,model:r.model||g.model,looked:true})}catch(e){draft=Object.assign(g,{msg:"Couldn't look that up right now. Please type the year, make and model."})}
   render();
 }
-const grab=()=>{const g=id=>{const e=$('#'+id);return e?e.value.trim():''};return{vin:g('f_vin').toUpperCase().replace(/[^A-Z0-9]/g,''),year:g('f_year'),make:g('f_make'),model:g('f_model'),cust:g('f_cust'),date:g('f_date'),dn:g('f_dn'),dp:g('f_dp'),dc:g('f_dc'),notes:g('f_notes')}};
+const grab=()=>{const g=id=>{const e=$('#'+id);return e?e.value.trim():''};return{vin:g('f_vin').toUpperCase().replace(/[^A-Z0-9]/g,''),year:g('f_year'),make:g('f_make'),model:g('f_model'),color:g('f_color'),cust:g('f_cust'),date:g('f_date'),dn:g('f_dn'),dp:g('f_dp'),dc:g('f_dc'),notes:g('f_notes')}};
 function startAdd(){view='add';draft={};dupOk=false;render()}
 function cancel(){view='yard';draft=null;render()}
 async function save(){
   const g=grab(),m=$('#msg');
   if(g.vin.length<11){m.textContent='Please enter the VIN.';return}
+  if(!g.color){m.textContent='Please enter the color.';return}
   if(role==='owner'&&!g.cust){m.textContent='Please choose the customer.';return}
   if(role==='owner'&&cars.some(c=>c.vin===g.vin&&!c.outDate)&&!dupOk){dupOk=true;m.textContent='This VIN is already in the yard. Tap Save again to add it anyway.';return}
   if(OPEN&&!g.cust){m.textContent='Please enter which customer this car is for.';return}
   if(CODE){
-    const {error}=await sb.rpc('submit_dropoff',{p_code:CODE,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
+    const {error}=await sb.rpc('submit_dropoff',{p_code:CODE,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_color:g.color,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
     if(error){m.textContent=error.message;return}
     done=true;draft=null;render();return;
   }
   if(OPEN){
-    const {error}=await sb.rpc('submit_dropoff_open',{p_customer:g.cust,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
+    const {error}=await sb.rpc('submit_dropoff_open',{p_customer:g.cust,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_color:g.color,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
     if(error){m.textContent=error.message;return}
     done=true;draft=null;render();return;
   }
-  const {error}=await sb.from('cars').insert({customer_id:g.cust,vin:g.vin,year:g.year,make:g.make,model:g.model,drop_name:g.dn,drop_phone:g.dp,drop_co:g.dc,notes:g.notes,in_date:g.date||today()});
+  const {error}=await sb.from('cars').insert({customer_id:g.cust,vin:g.vin,year:g.year,make:g.make,model:g.model,color:g.color,drop_name:g.dn,drop_phone:g.dp,drop_co:g.dc,notes:g.notes,in_date:g.date||today()});
   if(error){m.textContent=error.message;return}
   draft=null;view='yard';dupOk=false;await load();
 }
@@ -111,7 +112,7 @@ function card(c){
   const title=[c.year,c.make,c.model].filter(Boolean).join(' ')||'Unknown vehicle';
   const oa=armed==='o'+c.id,da=armed==='d'+c.id;
   return `<div class="car"><h3>${esc(title)}</h3><div class="vin">${esc(c.vin)}</div>
-  <div>${esc(c.customer)}</div>${c.dropName?`<div class="mut">Dropped off by ${esc(c.dropName)}${c.dropPhone?' · '+esc(c.dropPhone):''}${c.dropCo?' ('+esc(c.dropCo)+')':''}</div>`:''}${b}
+  <div>${esc(c.customer)}${c.color?' · '+esc(c.color):''}</div>${c.dropName?`<div class="mut">Dropped off by ${esc(c.dropName)}${c.dropPhone?' · '+esc(c.dropPhone):''}${c.dropCo?' ('+esc(c.dropCo)+')':''}</div>`:''}${b}
   <div class="mut">In ${nice(c.inDate)} · ${k.days} day${k.days==1?'':'s'}${c.notes?'<br>'+esc(c.notes):''}</div>
   <div class="row" style="margin-top:8px${role==='owner'?'':';display:none'}">${out
    ?`<button class="sm" onclick="undo(byId('${c.id}'))">Undo pick-up</button>`
@@ -120,7 +121,7 @@ function card(c){
 }
 function list(){
   const el=$('#list');if(!el)return;
-  const s=q.toLowerCase(),cs=cars.filter(c=>!s||[c.vin,c.customer,c.make,c.model,c.year,c.dropName].join(' ').toLowerCase().includes(s));
+  const s=q.toLowerCase(),cs=cars.filter(c=>(!s||[c.vin,c.customer,c.make,c.model,c.year,c.color,c.dropName].join(' ').toLowerCase().includes(s))&&(!yearFilter||c.year===yearFilter)&&(!makeFilter||c.make===makeFilter));
   const inY=cs.filter(c=>!c.outDate).sort((a,b)=>calc(b).days-calc(a).days);
   let h='';
   if(view==='yard')h=inY.map(card).join('')||'<p class="mut">No cars in the yard.</p>';
@@ -146,6 +147,7 @@ function addHtml(){
   <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
   <div class="two"><div><label class="l">Year</label><input id="f_year" value="${v('year')}" inputmode="numeric"></div><div><label class="l">Make</label><input id="f_make" value="${v('make')}"></div></div>
   <label class="l">Model</label><input id="f_model" value="${v('model')}">
+  <label class="l">Color (required)</label><input id="f_color" value="${v('color')}">
   ${role==='owner'?`<label class="l">Customer</label><select id="f_cust" style="width:100%;font:inherit;padding:12px;margin:4px 0 10px"><option value="">Choose…</option>${custs.filter(c=>c.active).map(c=>`<option value="${c.id}" ${d.cust===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
   <label class="l">Date arrived</label><input id="f_date" type="date" value="${d.date||today()}">`:''}
   ${OPEN?`<label class="l">Customer this car is for</label><input id="f_cust" list="oc" value="${v('cust')}" placeholder="Type the customer's name"><datalist id="oc">${openNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`:''}
@@ -184,14 +186,15 @@ function render(){
   a.innerHTML=`<header><h1> Yard Tracker</h1><button class="link" onclick="sb.auth.signOut().then(()=>location.reload())">Log out</button></header>
   ${role==='owner'?'<button class="big" onclick="startAdd()">＋ Check in a car</button>':'<p class="mut">View only</p>'}
   <div class="sum"><div><b>${y.length}</b><span>in yard</span></div><div><b>${ch.length}</b><span>being charged</span></div><div><b>${money(owed)}</b><span>owed today</span></div></div>
-  <input id="q" placeholder="Search VIN, customer, make, driver…" value="${esc(q)}" oninput="q=this.value;list()">
+  <input id="q" placeholder="Search VIN, customer, make, model, color, driver…" value="${esc(q)}" oninput="q=this.value;list()">
+  <div class="two"><select id="f_year_filter" onchange="yearFilter=this.value;list()"><option value="">All years</option>${[...new Set(cars.map(c=>c.year).filter(Boolean))].sort().reverse().map(y=>`<option value="${esc(y)}" ${yearFilter===y?'selected':''}>${esc(y)}</option>`).join('')}</select><select id="f_make_filter" onchange="makeFilter=this.value;list()"><option value="">All makes</option>${[...new Set(cars.map(c=>c.make).filter(Boolean))].sort().map(mk=>`<option value="${esc(mk)}" ${makeFilter===mk?'selected':''}>${esc(mk)}</option>`).join('')}</select></div>
   <div class="tabs">${tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="view='${t[0]}';render()">${t[1]}</button>`).join('')}</div><div id="list"></div>`;
   if(view==='codes')$('#list').innerHTML=codesHtml();else list();
 }
 async function load(){
   const a=await sb.from('cars').select('*,customers(name)').order('in_date'),c=await sb.from('customers').select('*').order('name');
   if(a.error){err=a.error.message;render();return}
-  cars=a.data.filter(x=>!x.deleted).map(x=>({id:x.id,vin:x.vin,customer:x.customers?x.customers.name:'',year:x.year,make:x.make,model:x.model,dropName:x.drop_name,dropPhone:x.drop_phone,dropCo:x.drop_co,notes:x.notes,inDate:x.in_date,outDate:x.out_date||''}));
+  cars=a.data.filter(x=>!x.deleted).map(x=>({id:x.id,vin:x.vin,customer:x.customers?x.customers.name:'',year:x.year,make:x.make,model:x.model,color:x.color,dropName:x.drop_name,dropPhone:x.drop_phone,dropCo:x.drop_co,notes:x.notes,inDate:x.in_date,outDate:x.out_date||''}));
   custs=c.data||[];ready=true;if(view!=='add')render();
 }
 async function enter(){
