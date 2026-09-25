@@ -83,7 +83,6 @@ async function save(){
   const g=grab(),m=$('#msg');
   if(g.vin.length<11){m.textContent='Please enter the VIN.';return}
   if(role==='owner'&&!g.cust){m.textContent='Please choose the customer.';return}
-  if(!g.dn||g.dp.replace(/\D/g,'').length<7){m.textContent='Please enter the name and phone number of the person dropping the car off.';return}
   if(role==='owner'&&cars.some(c=>c.vin===g.vin&&!c.outDate)&&!dupOk){dupOk=true;m.textContent='This VIN is already in the yard. Tap Save again to add it anyway.';return}
   if(OPEN&&!g.cust){m.textContent='Please enter which customer this car is for.';return}
   if(CODE){
@@ -151,7 +150,7 @@ function addHtml(){
   <label class="l">Date arrived</label><input id="f_date" type="date" value="${d.date||today()}">`:''}
   ${OPEN?`<label class="l">Customer this car is for</label><input id="f_cust" list="oc" value="${v('cust')}" placeholder="Type the customer's name"><datalist id="oc">${openNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`:''}
   <label class="l">Notes (optional)</label><input id="f_notes" value="${v('notes')}" placeholder="Damage, keys, anything we should know">
-  <div class="grp"><span>Who is dropping it off? (required)</span></div>
+  <div class="grp"><span>Who is dropping it off? (Optional)</span></div>
   <label class="l">Driver's name</label><input id="f_dn" value="${v('dn')}" autocomplete="name">
   <label class="l">Phone number</label><input id="f_dp" value="${v('dp')}" type="tel" inputmode="tel" autocomplete="tel">
   <label class="l">Trucking company (optional)</label><input id="f_dc" value="${v('dc')}">
