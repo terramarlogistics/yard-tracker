@@ -13,7 +13,8 @@ h1{font-size:22px;margin:0}.mut{color:var(--mut);font-size:15px}
 button,.big{font:inherit;cursor:pointer}
 .big{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:600;font-size:18px;margin:8px 0;text-align:center}
 :root:not([data-theme="light"]) .big{color:#0b1220}
-.big.alt{background:var(--card);color:var(--tx);border:2px solid var(--bd)}
+.big.alt{background:#475569;color:#fff;border:0}
+:root:not([data-theme="light"]) .big.alt{color:#fff}
 .link{background:none;border:0;color:var(--pri);font-size:16px;padding:8px}
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
 .sum div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px;text-align:center}
@@ -76,8 +77,14 @@ async function callScan(body){
 }
 async function scan(file){
   if(!file)return;draft={reading:true};render();
-  try{const r=await callScan({image:await b64(await shrink(file))});draft=Object.assign({scanned:true},r);if(!r.vin)draft.msg="I couldn't read a VIN in that photo. Try again closer and in good light, or type it in."}
-  catch(e){draft={msg:e.message}}
+  try{
+    const shrunk=await shrink(file),img64=await b64(shrunk);
+    let r;
+    try{r=await callScan({image:img64})}
+    catch(e1){r=await callScan({image:img64})} // one silent retry: most failures are a dropped mobile connection, not a real error
+    draft=Object.assign({scanned:true},r);if(!r.vin)draft.msg="I couldn't read a VIN in that photo. Try again closer and in good light, or type it in."
+  }
+  catch(e){draft={msg:e.message+" (Tried twice — if this keeps happening, try switching between WiFi and mobile data.)"}}
   render();
 }
 async function lookup(){
@@ -145,7 +152,7 @@ function addHtml(){
   const noCancel=CODE||OPEN;
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
    <label class="big">📷 Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
-   <button class="big alt" onclick="draft={};render()">⌨️ Type the VIN instead</button>
+   <button class="big alt" onclick="draft={};render()">⌨️ Enter a VIN manually</button>
    <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
   if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
   const v=k=>esc(d[k]||'');
