@@ -153,7 +153,7 @@ function addHtml(){
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
    <label class="big">📷 Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
    <button class="big alt" onclick="draft={};render()">⌨️ Enter a VIN manually</button>
-   <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
+   <p class="mut">The VIN is on the sticker inside the driver's door (or look through the windshield on the dash) </p>`;
   if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
   const v=k=>esc(d[k]||'');
   return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
