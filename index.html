@@ -151,9 +151,9 @@ function addHtml(){
   const d=draft;
   const noCancel=CODE||OPEN;
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
-   <label class="big">📷 Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
-   <button class="big alt" onclick="draft={};render()">⌨️ Enter a VIN manually</button>
-   <p class="mut">The VIN is on the sticker inside the driver's door (or look through the windshield on the dash) </p>`;
+   <label class="big">Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
+   <button class="big alt" onclick="draft={};render()">Enter a VIN manually</button>
+   <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
   if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
   const v=k=>esc(d[k]||'');
   return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
@@ -194,7 +194,7 @@ async function doLogin(){
 function render(){
   const a=$('#app');
   if(err){a.innerHTML=`<div class="note">${esc(err)}</div>`;return}
-  if(CODE||OPEN){a.innerHTML=`<h2 style="text-align:center;margin:6px 0 16px">Terramar Logistics</h2>`+(done?`<header><h1>✅ Received</h1></header><p>Thank you. The car has been checked in.</p><button class="big" onclick="done=false;draft={};render()">Drop off another car</button>`:addHtml())+`<div class="mut" style="text-align:center;margin-top:30px;padding-top:14px;border-top:1px solid var(--bd)"><b>Terramar Logistics</b><br>673 Old Sambro Rd, Halifax<br>Phone: 902-412-1270<br>Email: admin@terramarlogistics.ca<br>Hours: Mon-Fri 8am-5pm</div>`;return}
+  if(CODE||OPEN){a.innerHTML=`<h2 style="text-align:center;margin:6px 0 16px"><span style="color:#e11d1d">T</span>erra<span style="color:#e11d1d">m</span>ar Logistics</h2>`+(done?`<header><h1>✅ Received</h1></header><p>Thank you. The car has been checked in.</p><button class="big" onclick="done=false;draft={};render()">Drop off another car</button>`:addHtml())+`<div class="mut" style="text-align:center;margin-top:30px;padding-top:14px;border-top:1px solid var(--bd)"><b><span style="color:#e11d1d">T</span>erra<span style="color:#e11d1d">m</span>ar Logistics</b><br>673 Old Sambro Rd, Halifax<br>Phone: 902-412-1270<br>Email: admin@terramarlogistics.ca<br>Hours: Mon-Fri 8am-5pm</div>`;return}
   if(needLogin){a.innerHTML=`<header><h1> Yard Tracker</h1></header><label class="l">Email</label><input id="l_e" type="email" autocomplete="username"><label class="l">Password</label><input id="l_p" type="password" autocomplete="current-password"><div id="msg"></div><button class="big" onclick="doLogin()">Log in</button>`;return}
   if(!ready){a.innerHTML='<p class="mut">Loading…</p>';return}
   if(view==='add'){a.innerHTML=addHtml();return}
