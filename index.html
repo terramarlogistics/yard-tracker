@@ -205,8 +205,8 @@ async function enter(){
   role=data.role;await load();if(role==='owner'){const s=await sb.rpc('get_scan_stats');if(!s.error&&s.data&&s.data[0])scanStats=s.data[0]}setInterval(()=>{if(view!=='add'&&view!=='codes'&&document.activeElement.tagName!=='INPUT')load()},30000);
 }
 (async()=>{
-  if(OPEN){const {data}=await sb.rpc('list_customer_names');openNames=(data||[]).map(r=>r.name);ready=true;draft={};render();return}
-  if(CODE){const {data}=await sb.rpc('get_customer',{p_code:CODE});if(!data)err='This drop-off link is not valid. Please contact the yard.';else{cust={name:data};draft={}}render();return}
+  if(OPEN){const {data}=await sb.rpc('list_customer_names');openNames=(data||[]).map(r=>r.name);ready=true;draft=null;render();return}
+  if(CODE){const {data}=await sb.rpc('get_customer',{p_code:CODE});if(!data)err='This drop-off link is not valid. Please contact the yard.';else{cust={name:data};draft=null}render();return}
   const {data:{session}}=await sb.auth.getSession();
   if(!session){needLogin=true;render();return}
   await enter();
