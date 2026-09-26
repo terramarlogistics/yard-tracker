@@ -45,7 +45,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const CODE=new URLSearchParams(location.search).get('code')||'';
 const OPEN=new URLSearchParams(location.search).get('dropoff')==='1';
 let openNames=[];
-let role='',cars=[],custs=[],view='yard',q='',yearFilter='',makeFilter='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false;
+let role='',cars=[],custs=[],view='yard',q='',yearFilter='',makeFilter='',draft=null,armed='',dupOk=false,cust=null,done=false,err='',ready=false,needLogin=false,scanStats=null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
@@ -135,6 +135,7 @@ function addHtml(){
   const d=draft;
   const noCancel=CODE||OPEN;
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
+   <label class="big">📷 Take a photo of the VIN<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
    <button class="big alt" onclick="draft={};render()">⌨️ Type the VIN instead</button>
    <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
   if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
@@ -186,6 +187,7 @@ function render(){
   a.innerHTML=`<header><h1> Yard Tracker</h1><button class="link" onclick="sb.auth.signOut().then(()=>location.reload())">Log out</button></header>
   ${role==='owner'?'<button class="big" onclick="startAdd()">＋ Check in a car</button>':'<p class="mut">View only</p>'}
   <div class="sum"><div><b>${y.length}</b><span>in yard</span></div><div><b>${ch.length}</b><span>being charged</span></div><div><b>${money(owed)}</b><span>owed today</span></div></div>
+  ${role==='owner'&&scanStats?`<p class="mut" style="text-align:center;margin-top:-4px">📷 ${scanStats.total_scans} photo scan${scanStats.total_scans==1?'':'s'} so far · about $${Number(scanStats.total_cost).toFixed(4)} total</p>`:''}
   <input id="q" placeholder="Search VIN, customer, make, model, color, driver…" value="${esc(q)}" oninput="q=this.value;list()">
   <div class="two"><select id="f_year_filter" onchange="yearFilter=this.value;list()"><option value="">All years</option>${[...new Set(cars.map(c=>c.year).filter(Boolean))].sort().reverse().map(y=>`<option value="${esc(y)}" ${yearFilter===y?'selected':''}>${esc(y)}</option>`).join('')}</select><select id="f_make_filter" onchange="makeFilter=this.value;list()"><option value="">All makes</option>${[...new Set(cars.map(c=>c.make).filter(Boolean))].sort().map(mk=>`<option value="${esc(mk)}" ${makeFilter===mk?'selected':''}>${esc(mk)}</option>`).join('')}</select></div>
   <div class="tabs">${tabs.map(t=>`<button class="${view===t[0]?'on':''}" onclick="view='${t[0]}';render()">${t[1]}</button>`).join('')}</div><div id="list"></div>`;
@@ -200,7 +202,7 @@ async function load(){
 async function enter(){
   const {data}=await sb.from('profiles').select('role').maybeSingle();
   if(!data){err='Your account has not been given access yet. Ask the yard owner.';render();return}
-  role=data.role;await load();setInterval(()=>{if(view!=='add'&&view!=='codes'&&document.activeElement.tagName!=='INPUT')load()},30000);
+  role=data.role;await load();if(role==='owner'){const s=await sb.rpc('get_scan_stats');if(!s.error&&s.data&&s.data[0])scanStats=s.data[0]}setInterval(()=>{if(view!=='add'&&view!=='codes'&&document.activeElement.tagName!=='INPUT')load()},30000);
 }
 (async()=>{
   if(OPEN){const {data}=await sb.rpc('list_customer_names');openNames=(data||[]).map(r=>r.name);ready=true;draft={};render();return}
