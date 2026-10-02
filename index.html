@@ -40,7 +40,7 @@ label.l{font-size:14px;font-weight:600;color:var(--mut)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style></head><body><div id="app"><p class="mut">Loading…</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
 <script>
 const SUPABASE_URL='https://yuobmkwgltxmrkdcuqoi.supabase.co',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -60,6 +60,7 @@ function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,
 function loadImg(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url})}
 async function tryBarcode(file){
   try{
+    if(typeof ZXing==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
     const img=await loadImg(file);
     const hints=new Map();hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
     const reader=new ZXing.BrowserMultiFormatReader(hints);
@@ -182,7 +183,7 @@ function addHtml(){
   const v=k=>esc(d[k]||'');
   return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
   ${d.msg?`<div class="note">${esc(d.msg)}</div>`:''}
-  ${d.fromBarcode?'<div class="note">Read directly from the barcode — please double check the details.</div>':d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
+  ${d.fromBarcode?'<div class="note">Read directly from the barcode — this is exact, no need to double-check it.</div>':d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
   ${d.vin&&d.vin.length===17&&!vinOk(d.vin)?'<div class="note">This VIN does not pass the standard check. Double-check every character.</div>':''}
   <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17">
   <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
