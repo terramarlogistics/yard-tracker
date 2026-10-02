@@ -40,6 +40,7 @@ label.l{font-size:14px;font-weight:600;color:var(--mut)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style></head><body><div id="app"><p class="mut">Loading…</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script>
 const SUPABASE_URL='https://yuobmkwgltxmrkdcuqoi.supabase.co',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -56,6 +57,19 @@ const money=n=>'$'+n.toLocaleString();
 const nice=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})};
 function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));const extra=Math.max(0,days-FREE_DAYS);return{days,extra,fee:extra*DAILY,left:FREE_DAYS-days}}
 function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
+function loadImg(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url})}
+async function tryBarcode(file){
+  try{
+    const img=await loadImg(file);
+    const hints=new Map();hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
+    const reader=new ZXing.BrowserMultiFormatReader(hints);
+    const result=await reader.decodeFromImageElement(img);
+    URL.revokeObjectURL(img.src);
+    const text=(result.getText()||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(text.length===17&&vinOk(text))return text;
+  }catch(e){/* no barcode found — fall back to the photo reader */}
+  return null;
+}
 function shrink(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{const k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.85)};img.src=fr.result};fr.readAsDataURL(file)})}
 
 
@@ -78,6 +92,16 @@ async function callScan(body){
 async function scan(file){
   if(!file)return;draft={reading:true};render();
   try{
+    const barcodeVin=await tryBarcode(file);
+    if(barcodeVin){
+      let year='',make='',model='';
+      try{
+        const d=await(await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/'+barcodeVin+'?format=json')).json();
+        const x=(d.Results&&d.Results[0])||{};const tc=t=>(t||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+        year=x.ModelYear||'';make=tc(x.Make||'');model=x.Model||'';
+      }catch(e){}
+      draft={vin:barcodeVin,year,make,model,scanned:true,fromBarcode:true};render();return;
+    }
     const shrunk=await shrink(file),img64=await b64(shrunk);
     let r;
     try{r=await callScan({image:img64})}
@@ -158,7 +182,7 @@ function addHtml(){
   const v=k=>esc(d[k]||'');
   return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
   ${d.msg?`<div class="note">${esc(d.msg)}</div>`:''}
-  ${d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
+  ${d.fromBarcode?'<div class="note">Read directly from the barcode — please double check the details.</div>':d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
   ${d.vin&&d.vin.length===17&&!vinOk(d.vin)?'<div class="note">This VIN does not pass the standard check. Double-check every character.</div>':''}
   <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17">
   <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
@@ -194,7 +218,8 @@ async function doLogin(){
 function render(){
   const a=$('#app');
   if(err){a.innerHTML=`<div class="note">${esc(err)}</div>`;return}
-if(CODE||OPEN){a.innerHTML=`<h2 style="text-align:center;margin:6px 0 16px">Terramar Logistics</h2>`+(done?`<header><h1>✅ Received</h1></header><p>Thank you. The car has been checked in.</p><button class="big" onclick="done=false;draft={};render()">Drop off another car</button>`:addHtml())+`<div class="mut" style="text-align:center;margin-top:30px;padding-top:14px;border-top:1px solid var(--bd)"><b>Terramar Logistics</b><br>673 Old Sambro Rd, Halifax<br>Phone: 902-412-1270<br>Email: admin@terramarlogistics.ca<br>Hours: Mon-Fri 8am-5pm</div>`;return}  if(needLogin){a.innerHTML=`<header><h1> Yard Tracker</h1></header><label class="l">Email</label><input id="l_e" type="email" autocomplete="username"><label class="l">Password</label><input id="l_p" type="password" autocomplete="current-password"><div id="msg"></div><button class="big" onclick="doLogin()">Log in</button>`;return}
+  if(CODE||OPEN){a.innerHTML=`<h2 style="text-align:center;margin:6px 0 16px"><span style="color:#e11d1d">T</span>erra<span style="color:#e11d1d">m</span>ar Logistics</h2>`+(done?`<header><h1>✅ Received</h1></header><p>Thank you. The car has been checked in.</p><button class="big" onclick="done=false;draft={};render()">Drop off another car</button>`:addHtml())+`<div class="mut" style="text-align:center;margin-top:30px;padding-top:14px;border-top:1px solid var(--bd)"><b><span style="color:#e11d1d">T</span>erra<span style="color:#e11d1d">m</span>ar Logistics</b><br>673 Old Sambro Rd, Halifax<br>Phone: 902-412-1270<br>Email: admin@terramarlogistics.ca<br>Hours: Mon-Fri 8am-5pm</div>`;return}
+  if(needLogin){a.innerHTML=`<header><h1> Yard Tracker</h1></header><label class="l">Email</label><input id="l_e" type="email" autocomplete="username"><label class="l">Password</label><input id="l_p" type="password" autocomplete="current-password"><div id="msg"></div><button class="big" onclick="doLogin()">Log in</button>`;return}
   if(!ready){a.innerHTML='<p class="mut">Loading…</p>';return}
   if(view==='add'){a.innerHTML=addHtml();return}
   const y=cars.filter(c=>!c.outDate),ch=y.filter(c=>calc(c).extra>0),owed=y.reduce((t,c)=>t+calc(c).fee,0);
