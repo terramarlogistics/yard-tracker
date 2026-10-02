@@ -58,9 +58,11 @@ const nice=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).t
 function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));const extra=Math.max(0,days-FREE_DAYS);return{days,extra,fee:extra*DAILY,left:FREE_DAYS-days}}
 function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
 function loadImg(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url})}
-function rotateImg(img,deg){
+function rotateImg(img,deg,maxDim){
   return new Promise((res,rej)=>{
-    const c=document.createElement('canvas'),ctx=c.getContext('2d'),sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
+    let sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
+    if(maxDim){const k=Math.min(1,maxDim/Math.max(sw,sh));sw=Math.round(sw*k);sh=Math.round(sh*k)}
+    const c=document.createElement('canvas'),ctx=c.getContext('2d');
     if(deg%180===0){c.width=sw;c.height=sh}else{c.width=sh;c.height=sw}
     ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-sw/2,-sh/2);
     const out=new Image();out.onload=()=>res(out);out.onerror=rej;out.src=c.toDataURL('image/jpeg',0.92);
@@ -68,17 +70,21 @@ function rotateImg(img,deg){
 }
 async function tryBarcode(file){
   if(typeof ZXing==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
+  const budget=new Promise(res=>setTimeout(()=>res(null),6000)); // never let barcode scanning stall the page — give up fast and fall back to the photo reader
+  return Promise.race([tryBarcodeInner(file),budget]);
+}
+async function tryBarcodeInner(file){
   let img;
   try{img=await loadImg(file)}catch(e){return null}
+  // Barcodes don't need full photo resolution, and scanning a huge image is what makes this slow — shrink first.
+  const small=await rotateImg(img,0,1400);
   const hints=new Map();
   hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
-  hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
   const reader=new ZXing.BrowserMultiFormatReader(hints);
-  // Barcodes on VIN labels can be printed sideways (vertical), so try the photo as-is,
-  // then rotated 90°, 180° and 270° until one of them decodes a valid VIN.
+  // Barcodes on VIN labels can be printed sideways (vertical), so try as-is, then rotated.
   for(const deg of [0,90,270,180]){
     try{
-      const source=deg===0?img:await rotateImg(img,deg);
+      const source=deg===0?small:await rotateImg(small,deg);
       const result=await reader.decodeFromImageElement(source);
       const text=(result.getText()||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
       if(text.length===17&&vinOk(text)){URL.revokeObjectURL(img.src);return text}
