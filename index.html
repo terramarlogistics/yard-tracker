@@ -58,17 +58,33 @@ const nice=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).t
 function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));const extra=Math.max(0,days-FREE_DAYS);return{days,extra,fee:extra*DAILY,left:FREE_DAYS-days}}
 function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
 function loadImg(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url})}
+function rotateImg(img,deg){
+  return new Promise((res,rej)=>{
+    const c=document.createElement('canvas'),ctx=c.getContext('2d'),sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
+    if(deg%180===0){c.width=sw;c.height=sh}else{c.width=sh;c.height=sw}
+    ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-sw/2,-sh/2);
+    const out=new Image();out.onload=()=>res(out);out.onerror=rej;out.src=c.toDataURL('image/jpeg',0.92);
+  });
+}
 async function tryBarcode(file){
-  try{
-    if(typeof ZXing==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
-    const img=await loadImg(file);
-    const hints=new Map();hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
-    const reader=new ZXing.BrowserMultiFormatReader(hints);
-    const result=await reader.decodeFromImageElement(img);
-    URL.revokeObjectURL(img.src);
-    const text=(result.getText()||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    if(text.length===17&&vinOk(text))return text;
-  }catch(e){/* no barcode found — fall back to the photo reader */}
+  if(typeof ZXing==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
+  let img;
+  try{img=await loadImg(file)}catch(e){return null}
+  const hints=new Map();
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
+  hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+  const reader=new ZXing.BrowserMultiFormatReader(hints);
+  // Barcodes on VIN labels can be printed sideways (vertical), so try the photo as-is,
+  // then rotated 90°, 180° and 270° until one of them decodes a valid VIN.
+  for(const deg of [0,90,270,180]){
+    try{
+      const source=deg===0?img:await rotateImg(img,deg);
+      const result=await reader.decodeFromImageElement(source);
+      const text=(result.getText()||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(text.length===17&&vinOk(text)){URL.revokeObjectURL(img.src);return text}
+    }catch(e){/* try next rotation */}
+  }
+  URL.revokeObjectURL(img.src);
   return null;
 }
 function shrink(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{const k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.85)};img.src=fr.result};fr.readAsDataURL(file)})}
@@ -176,15 +192,15 @@ function addHtml(){
   const d=draft;
   const noCancel=CODE||OPEN;
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
-   <p class="mut">Before scanning: make sure the barcode is clean and the VIN numbers are clearly visible — wipe off any dirt first.</p>
+   <p class="mut">Before scanning: make sure the barcode is clean and the VIN numbers are clearly visible — wipe off any dirt or glare first.</p>
    <label class="big">Scan the VIN barcode<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
    <button class="big alt" onclick="draft={};render()">Enter a VIN manually</button>
-   <p class="mut">The VIN is on the driver-side dashboard (look through the windshield) or on the sticker inside the driver's door.</p>`;
+   <p class="mut">The VIN is on a sticker inside the driver-side door or look through the windshield.</p>`;
   if(d.reading)return `<header><h1>Reading the VIN…</h1></header><p class="mut">This takes a few seconds.</p>`;
   const v=k=>esc(d[k]||'');
   return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>
   ${d.msg?`<div class="note">${esc(d.msg)}</div>`:''}
-  ${d.fromBarcode?'<div class="note">Read directly from the barcode — this is exact, no need to double-check it.</div>':d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
+  ${!d.msg&&d.fromBarcode?'<div class="note">Read directly from the barcode — this is exact, no need to double-check it.</div>':!d.msg&&d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
   ${d.vin&&d.vin.length===17&&!vinOk(d.vin)?'<div class="note">This VIN does not pass the standard check. Double-check every character.</div>':''}
   <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17">
   <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
