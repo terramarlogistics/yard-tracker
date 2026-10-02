@@ -40,7 +40,7 @@ label.l{font-size:14px;font-weight:600;color:var(--mut)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style></head><body><div id="app"><p class="mut">Loading…</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/iife/reader/index.js"></script>
 <script>
 const SUPABASE_URL='https://yuobmkwgltxmrkdcuqoi.supabase.co',SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1b2Jta3dnbHR4bXJrZGN1cW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNzM2MzAsImV4cCI6MjEwNTg0OTYzMH0.FPChR5tzT5u4NaHA1p63OngGssfQl2vy7GGDXzoaCd8',FREE_DAYS=30,DAILY=10;
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -57,40 +57,20 @@ const money=n=>'$'+n.toLocaleString();
 const nice=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})};
 function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));const extra=Math.max(0,days-FREE_DAYS);return{days,extra,fee:extra*DAILY,left:FREE_DAYS-days}}
 function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
-function loadImg(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url})}
-function rotateImg(img,deg,maxDim){
-  return new Promise((res,rej)=>{
-    let sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;
-    if(maxDim){const k=Math.min(1,maxDim/Math.max(sw,sh));sw=Math.round(sw*k);sh=Math.round(sh*k)}
-    const c=document.createElement('canvas'),ctx=c.getContext('2d');
-    if(deg%180===0){c.width=sw;c.height=sh}else{c.width=sh;c.height=sw}
-    ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-sw/2,-sh/2);
-    const out=new Image();out.onload=()=>res(out);out.onerror=rej;out.src=c.toDataURL('image/jpeg',0.92);
-  });
-}
 async function tryBarcode(file){
-  if(typeof ZXing==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
-  const budget=new Promise(res=>setTimeout(()=>res(null),6000)); // never let barcode scanning stall the page — give up fast and fall back to the photo reader
-  return Promise.race([tryBarcodeInner(file),budget]);
-}
-async function tryBarcodeInner(file){
-  let img;
-  try{img=await loadImg(file)}catch(e){return null}
-  // Barcodes don't need full photo resolution, and scanning a huge image is what makes this slow — shrink first.
-  const small=await rotateImg(img,0,1400);
-  const hints=new Map();
-  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.CODE_128]);
-  const reader=new ZXing.BrowserMultiFormatReader(hints);
-  // Barcodes on VIN labels can be printed sideways (vertical), so try as-is, then rotated.
-  for(const deg of [0,90,270,180]){
-    try{
-      const source=deg===0?small:await rotateImg(small,deg);
-      const result=await reader.decodeFromImageElement(source);
-      const text=(result.getText()||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-      if(text.length===17&&vinOk(text)){URL.revokeObjectURL(img.src);return text}
-    }catch(e){/* try next rotation */}
-  }
-  URL.revokeObjectURL(img.src);
+  if(typeof ZXingWASM==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
+  const budget=new Promise(res=>setTimeout(()=>res(null),8000)); // never let barcode scanning stall the page — give up fast and fall back to the photo reader
+  try{
+    const results=await Promise.race([
+      ZXingWASM.readBarcodes(file,{formats:['Code39','Code128'],tryHarder:true,maxNumberOfSymbols:1}),
+      budget
+    ]);
+    if(!results)return null; // timed out
+    for(const r of results){
+      const text=(r.text||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(text.length===17&&vinOk(text))return text;
+    }
+  }catch(e){/* no barcode found — fall back to the photo reader */}
   return null;
 }
 function shrink(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=rej;fr.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{const k=Math.min(1,1800/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*k;c.height=img.height*k;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.85)};img.src=fr.result};fr.readAsDataURL(file)})}
