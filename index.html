@@ -226,7 +226,7 @@ function addHtml(){
   const d=draft;
   const noCancel=CODE||OPEN;
   if(!d)return `<header><h1>Drop off a car</h1>${noCancel?'':'<button class="link" onclick="cancel()">Cancel</button>'}</header>${CODE&&cust?`<p class="mut">For ${esc(cust.name)}</p>`:''}
-   <p class="mut">Before scanning: make sure the barcode is clean and the VIN numbers are clearly visible — wipe off any dirt or glare first.</p>
+   <p class="mut">Before scanning: make sure the barcode is clean and the VIN numbers are clearly visible — wipe off any dirt first.</p>
    <label class="big">Scan the VIN barcode<input type="file" accept="image/*" capture="environment" hidden onchange="scan(this.files[0])"></label>
    <button class="big alt" onclick="draft={};render()">Enter a VIN manually</button>
    <p class="mut">The VIN is on a sticker inside the driver-side door or look through the windshield.</p>`;
@@ -236,7 +236,7 @@ function addHtml(){
   ${d.msg?`<div class="note">${esc(d.msg)}</div>`:''}
   ${!d.msg&&d.fromBarcode?'<div class="note">Read directly from the barcode — this is exact, no need to double-check it.</div>':!d.msg&&d.scanned?'<div class="note">Filled in from the photo. Please compare with the car before saving.</div>':''}
   ${d.vin&&d.vin.length===17&&!vinOk(d.vin)?'<div class="note">This VIN does not pass the standard check. Double-check every character.</div>':''}
-  <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17">
+  <label class="l">VIN</label><input id="f_vin" value="${v('vin')}" autocapitalize="characters" maxlength="17" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(this.value.length===17)lookup()">
   <button class="sm" onclick="lookup()" style="margin-bottom:12px">Look up year, make and model</button>
   <div class="two"><div><label class="l">Year</label><input id="f_year" value="${v('year')}" inputmode="numeric"></div><div><label class="l">Make</label><input id="f_make" value="${v('make')}"></div></div>
   <label class="l">Model</label><input id="f_model" value="${v('model')}">
