@@ -170,7 +170,7 @@ async function save(){
   if(g.vin.length<11){m.textContent='Please enter the VIN.';return}
   if(!g.color){m.textContent='Please enter the color.';return}
   if(role==='owner'&&!g.cust){m.textContent='Please choose the customer.';return}
-  if(role==='owner'&&cars.some(c=>c.vin===g.vin&&!c.outDate)&&!dupOk){dupOk=true;m.textContent='This VIN is already in the yard. Tap Save again to add it anyway.';return}
+  if(role==='owner'&&cars.some(c=>c.vin===g.vin&&!c.outDate)){m.textContent='This VIN is already in the yard. Please enter a different VIN.';return}
   if(OPEN&&!g.cust){m.textContent='Please enter which customer this car is for.';return}
   if(CODE){
     const {data:newId,error}=await sb.rpc('submit_dropoff',{p_code:CODE,p_vin:g.vin,p_year:g.year,p_make:g.make,p_model:g.model,p_color:g.color,p_name:g.dn,p_phone:g.dp,p_co:g.dc,p_notes:g.notes});
@@ -185,13 +185,13 @@ async function save(){
     done=true;draft=null;render();return;
   }
   const {data:newRow,error}=await sb.from('cars').insert({customer_id:g.cust,vin:g.vin,year:g.year,make:g.make,model:g.model,color:g.color,drop_name:g.dn,drop_phone:g.dp,drop_co:g.dc,notes:g.notes,in_date:g.date||today()}).select('id').single();
-  if(error){m.textContent=error.message;return}
+  if(error){m.textContent=error.code==='23505'?'This VIN is already in the yard. Please enter a different VIN.':error.message;return}
   if(newRow&&newRow.id)await uploadCarPhotos(newRow.id);
   draft=null;view='yard';dupOk=false;await load();
 }
 async function arm(id,fn){if(armed!==id){armed=id;list();return}armed='';await fn();await load()}
 const checkout=c=>arm('o'+c.id,()=>sb.from('cars').update({out_date:today()}).eq('id',c.id));
-const undo=async c=>{await sb.from('cars').update({out_date:null}).eq('id',c.id);await load()};
+const undo=async c=>{const {error}=await sb.from('cars').update({out_date:null}).eq('id',c.id);if(error){alert(error.code==='23505'?'Another active car already has this VIN, so this one can\'t be put back in the yard until that\'s resolved.':error.message);return}await load()};
 const remove=c=>arm('d'+c.id,()=>sb.from('cars').update({deleted:true}).eq('id',c.id));
 function card(c){
   const k=calc(c),out=!!c.outDate;
