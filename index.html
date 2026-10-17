@@ -61,15 +61,10 @@ function calc(c){const days=Math.max(0,dnum(c.outDate||today())-dnum(c.inDate));
 function vinOk(v){if(!/^[A-HJ-NPR-Z0-9]{17}$/.test(v))return false;const t={A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9},w=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];let s=0;for(let i=0;i<17;i++)s+=(/\d/.test(v[i])?+v[i]:t[v[i]])*w[i];const r=s%11;return v[8]===(r===10?'X':String(r))}
 async function tryBarcode(file){
   if(typeof ZXingWASM==='undefined'){console.warn('Barcode library did not load; using photo reader instead.');return null}
-  // Shrink first: trying every rotation (0/90/180/270) on a full-resolution phone photo is slow
-  // enough to blow the time budget, which is why vertical/sideways barcodes were silently timing
-  // out instead of failing to decode. A smaller image makes each rotation attempt fast.
-  let small;
-  try{small=await shrink(file,1400)}catch(e){small=file}
-  const budget=new Promise(res=>setTimeout(()=>res(null),12000)); // never let barcode scanning stall the page — give up and fall back to the photo reader
+  const budget=new Promise(res=>setTimeout(()=>res(null),15000)); // never let barcode scanning stall the page — give up and fall back to the photo reader
   try{
     const results=await Promise.race([
-      ZXingWASM.readBarcodes(small,{formats:['Code39','Code128'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:false,maxNumberOfSymbols:1}),
+      ZXingWASM.readBarcodes(file,{formats:['Code39','Code128'],tryHarder:true,tryRotate:true,tryInvert:true,maxNumberOfSymbols:10}),
       budget
     ]);
     if(!results)return null; // timed out
